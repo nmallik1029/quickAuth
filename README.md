@@ -63,7 +63,7 @@ disabledAt
 createdAt
 updatedAt
 lastLoginAt
-
+```
 ### Profile
 
 Stores user-facing profile information.

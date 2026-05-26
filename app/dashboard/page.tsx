@@ -1,5 +1,6 @@
 import { requireUser } from "@/lib/auth/require-user";
-import { logoutAction } from "@/app/actions/auth";
+import { logoutAction, resendVerificationAction } from "@/app/actions/auth";
+import { ResendButton } from "@/components/MessageForm";
 
 export default async function DashboardPage() {
   const user = await requireUser();
@@ -18,6 +19,12 @@ export default async function DashboardPage() {
           Role: {user.role} · Verified: {user.emailVerifiedAt ? "yes" : "no"}
         </p>
       </section>
+      {!user.emailVerifiedAt && (
+        <section className="rounded border border-yellow-700/40 bg-yellow-900/10 p-4 text-sm">
+          <p className="mb-2">Your email is not verified yet.</p>
+          <ResendButton action={resendVerificationAction} />
+        </section>
+      )}
     </main>
   );
 }

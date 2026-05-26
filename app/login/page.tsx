@@ -16,6 +16,9 @@ export default async function LoginPage() {
           Sign up
         </Link>
       </p>
+      <Link href="/forgot-password" className="text-sm text-zinc-400 underline">
+        Forgot password?
+      </Link>
     </main>
   );
 }

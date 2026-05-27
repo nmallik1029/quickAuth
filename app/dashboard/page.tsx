@@ -16,6 +16,14 @@ export default async function DashboardPage() {
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
         <div className="flex items-center gap-3">
+          {user.role === "admin" && (
+            <Link
+              href="/admin"
+              className="rounded border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-900"
+            >
+              Admin
+            </Link>
+          )}
           <Link
             href="/settings/profile"
             aria-label="Profile settings"

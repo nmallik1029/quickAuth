@@ -9,7 +9,7 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-start justify-center gap-6 px-6">
       <h1 className="text-2xl font-semibold">Log in</h1>
-      <AuthForm action={loginAction} submitLabel="Log in" />
+      <AuthForm action={loginAction} submitLabel="Log in" mode="login" />
       <p className="text-sm text-zinc-400">
         No account?{" "}
         <Link href="/signup" className="underline">

@@ -9,21 +9,23 @@ export function AuthForm({
   action,
   submitLabel,
   showUsername = false,
+  mode = "signup",
 }: {
   action: Action;
   submitLabel: string;
   showUsername?: boolean;
+  mode?: "signup" | "login";
 }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, {});
   return (
     <form action={formAction} className="flex w-full max-w-sm flex-col gap-3">
       <label className="flex flex-col gap-1 text-sm">
-        Email
+        {mode === "login" ? "Email or username" : "Email"}
         <input
-          name="email"
-          type="email"
+          name={mode === "login" ? "identifier" : "email"}
+          type={mode === "login" ? "text" : "email"}
           required
-          autoComplete="email"
+          autoComplete={mode === "login" ? "username" : "email"}
           className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm outline-none focus:border-zinc-400"
         />
       </label>

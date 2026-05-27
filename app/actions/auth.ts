@@ -7,7 +7,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, revokeSessionByToken, revokeAllUserSessions, getSessionByToken } from "@/lib/auth/session";
 import { setSessionCookie, clearSessionCookie, readSessionCookie } from "@/lib/auth/cookies";
 import { isValidEmail, isValidPassword, isStrongPassword, normalizeEmail, safeRedirectPath } from "@/lib/validation";
-import { validateUsername } from "@/lib/auth/username";
+import { validateUsername, normalizeUsername } from "@/lib/auth/username";
 import {
   createAndSendVerification,
   createAndSendPasswordReset,
@@ -72,15 +72,28 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
 }
 
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  const emailRaw = String(formData.get("email") ?? "");
+  const identifierRaw = String(formData.get("identifier") ?? formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
   const redirectTo = safeRedirectPath(String(formData.get("redirectTo") ?? "/dashboard"));
 
-  const generic = { error: "Invalid email or password." };
-  if (!isValidEmail(emailRaw) || !isValidPassword(password)) return generic;
+  const generic = { error: "Invalid username, email, or password." };
+  if (!identifierRaw.trim() || !isValidPassword(password)) return generic;
 
-  const emailNormalized = normalizeEmail(emailRaw);
-  const user = await prisma.user.findUnique({ where: { emailNormalized } });
+  const isEmail = identifierRaw.includes("@");
+  let user = null;
+  if (isEmail) {
+    if (!isValidEmail(identifierRaw)) return generic;
+    const emailNormalized = normalizeEmail(identifierRaw);
+    user = await prisma.user.findUnique({ where: { emailNormalized } });
+  } else {
+    const usernameNormalized = normalizeUsername(identifierRaw);
+    if (!usernameNormalized) return generic;
+    const profile = await prisma.profile.findUnique({
+      where: { usernameNormalized },
+      include: { user: true },
+    });
+    user = profile?.user ?? null;
+  }
   if (!user) return generic;
   if (user.disabledAt) return generic;
 

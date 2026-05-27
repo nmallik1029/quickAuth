@@ -37,15 +37,20 @@ async function stashSecret(appId: string, raw: string) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 5,
+    maxAge: 60, // 60s — just long enough to render and copy
   });
 }
 
-export async function readAndClearSecret(appId: string): Promise<string | null> {
+/** Read-only; safe to call from a server component during render. Cookie self-expires in ~60s. */
+export async function readSecret(appId: string): Promise<string | null> {
   const jar = await cookies();
-  const v = jar.get(`${SECRET_COOKIE_PREFIX}${appId}`)?.value ?? null;
-  if (v) jar.delete(`${SECRET_COOKIE_PREFIX}${appId}`);
-  return v;
+  return jar.get(`${SECRET_COOKIE_PREFIX}${appId}`)?.value ?? null;
+}
+
+/** Server-action variant that explicitly clears the cookie when called from a client. */
+export async function dismissSecretAction(appId: string): Promise<void> {
+  const jar = await cookies();
+  jar.delete(`${SECRET_COOKIE_PREFIX}${appId}`);
 }
 
 export async function createClientAppAction(

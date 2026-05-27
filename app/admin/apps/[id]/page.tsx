@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { readAndClearSecret } from "@/app/actions/client-apps";
+import { readSecret } from "@/app/actions/client-apps";
 import { AppEditForm } from "@/components/admin/AppEditForm";
 import { RedirectUrisPanel } from "@/components/admin/RedirectUrisPanel";
 import { AppDangerButtons } from "@/components/admin/AppDangerButtons";
@@ -19,7 +19,7 @@ export default async function AdminAppDetailPage({
   });
   if (!app) notFound();
 
-  const rawSecret = await readAndClearSecret(app.id);
+  const rawSecret = await readSecret(app.id);
 
   return (
     <div className="flex flex-col gap-8">

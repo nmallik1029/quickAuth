@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/current-user";
-import { setPostLoginRedirect } from "@/lib/oauth/post-login";
 import { approveOAuthAction, denyOAuthAction } from "@/app/actions/oauth";
 import { createAuditLog } from "@/lib/audit";
 
@@ -59,8 +58,7 @@ export default async function OAuthAuthorizePage({
       ...(state ? { state } : {}),
       ...(scope ? { scope } : {}),
     }).toString()}`;
-    await setPostLoginRedirect(here);
-    redirect("/login");
+    redirect(`/oauth/begin-login?next=${encodeURIComponent(here)}`);
   }
 
   await createAuditLog({

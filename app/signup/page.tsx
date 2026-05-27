@@ -1,21 +1,18 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { AuthForm } from "@/components/AuthForm";
-import { signupAction } from "@/app/actions/auth";
+import { SignupCard } from "@/components/AuthCard";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 export default async function SignupPage() {
   if (await getCurrentUser()) redirect("/dashboard");
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-start justify-center gap-6 px-6">
-      <h1 className="text-2xl font-semibold">Create account</h1>
-      <AuthForm action={signupAction} submitLabel="Sign up" showUsername />
-      <p className="text-sm text-zinc-400">
-        Already have an account?{" "}
-        <Link href="/login" className="underline">
-          Log in
-        </Link>
-      </p>
+    <main className="relative flex min-h-screen items-center justify-center px-6">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(99,102,241,0.18),transparent_50%),radial-gradient(circle_at_70%_80%,rgba(168,85,247,0.12),transparent_55%)]"
+      />
+      <div className="relative">
+        <SignupCard />
+      </div>
     </main>
   );
 }

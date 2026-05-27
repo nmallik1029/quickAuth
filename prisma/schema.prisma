@@ -11,7 +11,8 @@ model User {
   id              String    @id @default(cuid())
   email           String    @unique
   emailNormalized String    @unique
-  passwordHash    String
+  passwordHash    String?
+  googleId        String?   @unique
   emailVerifiedAt DateTime?
   role            String    @default("user")
   disabledAt      DateTime?
@@ -65,6 +66,17 @@ model EmailVerificationToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+model SignupVerification {
+  id              String    @id @default(cuid())
+  email           String
+  emailNormalized String    @unique
+  codeHash        String
+  expiresAt       DateTime
+  verifiedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 }
 
 model PasswordResetToken {

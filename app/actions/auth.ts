@@ -17,6 +17,12 @@ import {
 } from "@/lib/auth/verification";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email";
+import {
+  startSignupVerification,
+  verifySignupCode,
+  checkSignupVerified,
+  deleteSignupVerification,
+} from "@/lib/auth/signup-verification";
 
 export type AuthState = { error?: string };
 
@@ -28,8 +34,36 @@ async function getReqMeta() {
   };
 }
 
-export async function signupAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+/** Step 1: user enters email, we send a 6-digit code. */
+export async function startEmailSignupAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  await checkRateLimit("signup-start");
   const emailRaw = String(formData.get("email") ?? "");
+  if (!isValidEmail(emailRaw)) return { error: "Invalid email." };
+  const emailNormalized = normalizeEmail(emailRaw);
+
+  const existing = await prisma.user.findUnique({ where: { emailNormalized } });
+  if (existing) return { error: "An account with this email already exists. Try logging in." };
+
+  await startSignupVerification(emailRaw.trim(), emailNormalized);
+  return {};
+}
+
+/** Step 2: user enters the 6-digit code; we mark the verification verified. */
+export async function verifySignupEmailAction(
+  email: string,
+  code: string,
+): Promise<{ ok: boolean; error?: string }> {
+  if (!isValidEmail(email)) return { ok: false, error: "Invalid or expired code." };
+  const emailNormalized = normalizeEmail(email);
+  const res = await verifySignupCode(emailNormalized, code);
+  if (!res.ok) return { ok: false, error: "Invalid or expired code." };
+  return { ok: true };
+}
+
+/** Step 3: user picks username + password; verification must already be marked verified. */
+export async function completeEmailSignupAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
+  const emailRaw = String(formData.get("email") ?? "");
+  const code = String(formData.get("code") ?? "");
   const usernameRaw = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
   const redirectTo = safeRedirectPath(String(formData.get("redirectTo") ?? "/dashboard"));
@@ -37,11 +71,17 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   if (!isValidEmail(emailRaw)) return { error: "Invalid email." };
   const usernameCheck = validateUsername(usernameRaw);
   if (!usernameCheck.ok) return { error: usernameCheck.error };
-  if (!isValidPassword(password)) return { error: "Password must be at least 8 characters." };
+  if (!isStrongPassword(password)) {
+    return { error: "Password must be 8+ chars with upper, lower, and a number." };
+  }
 
   const emailNormalized = normalizeEmail(emailRaw);
+
   const existing = await prisma.user.findUnique({ where: { emailNormalized } });
   if (existing) return { error: "An account with this email already exists." };
+
+  const verified = await checkSignupVerified(emailNormalized, code);
+  if (!verified.ok) return { error: "Email is not verified. Please restart signup." };
 
   const usernameTaken = await prisma.profile.findUnique({
     where: { usernameNormalized: usernameCheck.normalized },
@@ -51,9 +91,10 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
     data: {
-      email: emailRaw.trim(),
+      email: verified.email ?? emailRaw.trim(),
       emailNormalized,
       passwordHash,
+      emailVerifiedAt: new Date(),
       profile: {
         create: {
           username: usernameCheck.clean,
@@ -63,7 +104,7 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
     },
   });
 
-  await createAndSendVerification(user.id, user.email);
+  await deleteSignupVerification(emailNormalized);
 
   const meta = await getReqMeta();
   const token = await createSession(user.id, meta);
@@ -97,6 +138,7 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   }
   if (!user) return generic;
   if (user.disabledAt) return generic;
+  if (!user.passwordHash) return generic;
 
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) return generic;

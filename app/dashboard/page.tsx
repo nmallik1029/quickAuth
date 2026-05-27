@@ -1,17 +1,35 @@
+import Link from "next/link";
+import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { logoutAction, resendVerificationAction } from "@/app/actions/auth";
 import { ResendButton } from "@/components/MessageForm";
 
 export default async function DashboardPage() {
   const user = await requireUser();
+  const profile = await prisma.profile.findUnique({ where: { userId: user.id } });
+
+  const fallbackLetter =
+    (profile?.displayName?.[0] ?? profile?.username?.[0] ?? user.email[0] ?? "?").toUpperCase();
+
   return (
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <div className="flex items-center gap-2">
-          <a href="/settings/profile" className="rounded border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-900">
-            Settings
-          </a>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/settings/profile"
+            aria-label="Profile settings"
+            className="block h-9 w-9 overflow-hidden rounded-full border border-zinc-700 transition hover:ring-2 hover:ring-zinc-500"
+          >
+            {profile?.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.avatarUrl} alt="Profile" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-zinc-800 text-sm font-semibold text-zinc-200">
+                {fallbackLetter}
+              </span>
+            )}
+          </Link>
           <form action={logoutAction}>
             <button className="rounded border border-zinc-700 px-3 py-1.5 text-sm">Log out</button>
           </form>

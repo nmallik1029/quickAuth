@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { requireUser } from "@/lib/auth/require-user";
 import { validateUsername } from "@/lib/auth/username";
+import { saveAvatar, deleteAvatarFile } from "@/lib/uploads/avatar";
 
 export type ProfileState = { error?: string; message?: string };
 
@@ -47,4 +48,28 @@ export async function updateProfileAction(_prev: ProfileState, formData: FormDat
 
   revalidatePath("/settings/profile");
   return { message: "Profile saved." };
+}
+
+export async function uploadAvatarAction(_prev: ProfileState, formData: FormData): Promise<ProfileState> {
+  const user = await requireUser();
+  const file = formData.get("avatar");
+  if (!(file instanceof File)) return { error: "No file provided." };
+
+  const result = await saveAvatar(user.id, file);
+  if (!result.ok) return { error: result.error };
+
+  const existing = await prisma.profile.findUnique({
+    where: { userId: user.id },
+    select: { avatarUrl: true },
+  });
+  await prisma.profile.update({
+    where: { userId: user.id },
+    data: { avatarUrl: result.url },
+  });
+  if (existing?.avatarUrl && existing.avatarUrl !== result.url) {
+    await deleteAvatarFile(existing.avatarUrl);
+  }
+
+  revalidatePath("/settings/profile");
+  return { message: "Avatar updated." };
 }

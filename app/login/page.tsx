@@ -4,6 +4,7 @@ import { loginAction } from "@/app/actions/auth";
 import { getCurrentUser } from "@/lib/auth/current-user";
 
 const errorMessages: Record<string, string> = {
+  rate_limited: "Too many attempts. Please try again later.",
   google_not_configured: "Google sign-in is not configured.",
   google_state_invalid: "Google sign-in failed (state mismatch). Please try again.",
   google_exchange_failed: "Could not complete Google sign-in. Please try again.",

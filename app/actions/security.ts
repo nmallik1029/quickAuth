@@ -8,6 +8,7 @@ import { getCurrentSession } from "@/lib/auth/current-user";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { clearSessionCookie } from "@/lib/auth/cookies";
 import { isStrongPassword } from "@/lib/validation";
+import { createAuditLog } from "@/lib/audit";
 
 export type SecurityState = { error?: string; message?: string };
 
@@ -29,12 +30,21 @@ export async function changePasswordAction(_prev: SecurityState, formData: FormD
     // Set-password path (Google-only account)
     const hash = await hashPassword(newPassword);
     await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hash } });
+    await createAuditLog({ action: "password.set", actorUserId: user.id, targetUserId: user.id });
     revalidatePath("/settings/security");
     return { message: "Password set." };
   }
 
   const ok = await verifyPassword(user.passwordHash, currentPassword);
-  if (!ok) return { error: "Current password is incorrect." };
+  if (!ok) {
+    await createAuditLog({
+      action: "password.change.failure",
+      actorUserId: user.id,
+      targetUserId: user.id,
+      metadata: { reason: "bad_current_password" },
+    });
+    return { error: "Current password is incorrect." };
+  }
 
   const hash = await hashPassword(newPassword);
   await prisma.user.update({ where: { id: user.id }, data: { passwordHash: hash } });
@@ -44,6 +54,7 @@ export async function changePasswordAction(_prev: SecurityState, formData: FormD
     data: { revokedAt: new Date() },
   });
 
+  await createAuditLog({ action: "password.changed", actorUserId: user.id, targetUserId: user.id });
   revalidatePath("/settings/security");
   return { message: "Password changed. Other sessions signed out." };
 }
@@ -58,6 +69,12 @@ export async function revokeSessionAction(sessionId: string): Promise<{ ok: bool
   if (target.revokedAt) return { ok: true };
 
   await prisma.session.update({ where: { id: sessionId }, data: { revokedAt: new Date() } });
+  await createAuditLog({
+    action: "session.revoked",
+    actorUserId: current.user.id,
+    targetUserId: current.user.id,
+    metadata: { sessionId },
+  });
   revalidatePath("/settings/security");
   return { ok: true };
 }
@@ -65,9 +82,15 @@ export async function revokeSessionAction(sessionId: string): Promise<{ ok: bool
 export async function revokeOtherSessionsAction(): Promise<{ ok: boolean }> {
   const current = await getCurrentSession();
   if (!current) return { ok: false };
-  await prisma.session.updateMany({
+  const result = await prisma.session.updateMany({
     where: { userId: current.user.id, revokedAt: null, NOT: { id: current.id } },
     data: { revokedAt: new Date() },
+  });
+  await createAuditLog({
+    action: "sessions.revoked",
+    actorUserId: current.user.id,
+    targetUserId: current.user.id,
+    metadata: { scope: "others", count: result.count },
   });
   revalidatePath("/settings/security");
   return { ok: true };
@@ -75,10 +98,16 @@ export async function revokeOtherSessionsAction(): Promise<{ ok: boolean }> {
 
 export async function signOutEverywhereAction(): Promise<void> {
   const user = await requireUser();
-  await prisma.session.updateMany({
+  const result = await prisma.session.updateMany({
     where: { userId: user.id, revokedAt: null },
     data: { revokedAt: new Date() },
   });
   await clearSessionCookie();
+  await createAuditLog({
+    action: "sessions.revoked",
+    actorUserId: user.id,
+    targetUserId: user.id,
+    metadata: { scope: "all", count: result.count },
+  });
   redirect("/login");
 }

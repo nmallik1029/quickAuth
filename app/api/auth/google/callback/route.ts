@@ -6,6 +6,7 @@ import { SESSION_COOKIE } from "@/lib/auth/cookies";
 import { normalizeEmail } from "@/lib/validation";
 import { createAuditLog } from "@/lib/audit";
 import { checkRateLimit, getIpKey, LIMITS } from "@/lib/rate-limit";
+import { consumePostLoginRedirect } from "@/lib/oauth/post-login";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
 
@@ -88,7 +89,9 @@ export async function GET(req: NextRequest) {
 
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
 
-  const res = NextResponse.redirect(new URL("/dashboard", APP_URL));
+  const postLogin = await consumePostLoginRedirect();
+  const dest = postLogin ?? "/dashboard";
+  const res = NextResponse.redirect(new URL(dest, APP_URL));
   res.cookies.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",

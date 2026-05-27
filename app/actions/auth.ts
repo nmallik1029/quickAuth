@@ -24,6 +24,7 @@ import {
 } from "@/lib/auth/signup-verification";
 import { createAuditLog } from "@/lib/audit";
 import { checkMany, checkRateLimit, getIpKey, LIMITS } from "@/lib/rate-limit";
+import { consumePostLoginRedirect } from "@/lib/oauth/post-login";
 
 export type AuthState = { error?: string };
 
@@ -122,7 +123,9 @@ export async function completeEmailSignupAction(_prev: AuthState, formData: Form
   const token = await createSession(user.id, meta);
   await setSessionCookie(token);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  redirect(redirectTo);
+
+  const postLogin = await consumePostLoginRedirect();
+  redirect(postLogin ?? redirectTo);
 }
 
 export async function loginAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -178,7 +181,9 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
   await setSessionCookie(token);
   await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
   await createAuditLog({ action: "login.success", actorUserId: user.id, targetUserId: user.id, metadata: { method: "password" } });
-  redirect(redirectTo);
+
+  const postLogin = await consumePostLoginRedirect();
+  redirect(postLogin ?? redirectTo);
 }
 
 export async function logoutAction() {

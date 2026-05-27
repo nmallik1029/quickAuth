@@ -16,6 +16,7 @@ import {
   consumePasswordResetCode,
 } from "@/lib/auth/verification";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { sendEmail } from "@/lib/email";
 
 export type AuthState = { error?: string };
 
@@ -145,6 +146,28 @@ export async function forgotPasswordAction(_prev: MessageState, formData: FormDa
     await createAndSendPasswordReset(user.id, user.email);
   }
   redirect(`/reset-password?email=${encodeURIComponent(emailNormalized)}`);
+}
+
+export async function forgotUsernameAction(_prev: MessageState, formData: FormData): Promise<MessageState> {
+  await checkRateLimit("forgot-username");
+  const emailRaw = String(formData.get("email") ?? "");
+  const generic = { message: "If an account exists, we sent the username to that email." };
+  if (!isValidEmail(emailRaw)) return generic;
+  const emailNormalized = normalizeEmail(emailRaw);
+  const user = await prisma.user.findUnique({
+    where: { emailNormalized },
+    include: { profile: true },
+  });
+  if (user && !user.disabledAt && user.profile?.username) {
+    const username = user.profile.username;
+    await sendEmail({
+      to: user.email,
+      subject: "Your QuickAuth username",
+      html: `<p>Your username is: <strong>${username}</strong></p><p>If you did not request this, you can safely ignore this email.</p>`,
+      text: `Your username is: ${username}\n\nIf you did not request this, you can safely ignore this email.`,
+    });
+  }
+  return generic;
 }
 
 export async function verifyResetCodeAction(email: string, code: string): Promise<{ ok: boolean; error?: string }> {

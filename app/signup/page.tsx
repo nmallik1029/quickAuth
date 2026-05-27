@@ -9,7 +9,7 @@ export default async function SignupPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col items-start justify-center gap-6 px-6">
       <h1 className="text-2xl font-semibold">Create account</h1>
-      <AuthForm action={signupAction} submitLabel="Sign up" />
+      <AuthForm action={signupAction} submitLabel="Sign up" showUsername />
       <p className="text-sm text-zinc-400">
         Already have an account?{" "}
         <Link href="/login" className="underline">

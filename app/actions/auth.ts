@@ -7,6 +7,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, revokeSessionByToken, revokeAllUserSessions, getSessionByToken } from "@/lib/auth/session";
 import { setSessionCookie, clearSessionCookie, readSessionCookie } from "@/lib/auth/cookies";
 import { isValidEmail, isValidPassword, isStrongPassword, normalizeEmail, safeRedirectPath } from "@/lib/validation";
+import { validateUsername } from "@/lib/auth/username";
 import {
   createAndSendVerification,
   createAndSendPasswordReset,
@@ -28,15 +29,23 @@ async function getReqMeta() {
 
 export async function signupAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
   const emailRaw = String(formData.get("email") ?? "");
+  const usernameRaw = String(formData.get("username") ?? "");
   const password = String(formData.get("password") ?? "");
   const redirectTo = safeRedirectPath(String(formData.get("redirectTo") ?? "/dashboard"));
 
   if (!isValidEmail(emailRaw)) return { error: "Invalid email." };
+  const usernameCheck = validateUsername(usernameRaw);
+  if (!usernameCheck.ok) return { error: usernameCheck.error };
   if (!isValidPassword(password)) return { error: "Password must be at least 8 characters." };
 
   const emailNormalized = normalizeEmail(emailRaw);
   const existing = await prisma.user.findUnique({ where: { emailNormalized } });
   if (existing) return { error: "An account with this email already exists." };
+
+  const usernameTaken = await prisma.profile.findUnique({
+    where: { usernameNormalized: usernameCheck.normalized },
+  });
+  if (usernameTaken) return { error: "That username is already taken." };
 
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
@@ -44,7 +53,12 @@ export async function signupAction(_prev: AuthState, formData: FormData): Promis
       email: emailRaw.trim(),
       emailNormalized,
       passwordHash,
-      profile: { create: {} },
+      profile: {
+        create: {
+          username: usernameCheck.clean,
+          usernameNormalized: usernameCheck.normalized,
+        },
+      },
     },
   });
 

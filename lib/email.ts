@@ -1,12 +1,30 @@
-type SendArgs = { to: string; subject: string; html: string; text?: string };
+type TemplateRef = { id: string; variables?: Record<string, string | number | boolean> };
 
-export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<void> {
+type SendArgs =
+  | { to: string; subject: string; html: string; text?: string; template?: never }
+  | { to: string; template: TemplateRef; subject?: string };
+
+export async function sendEmail(args: SendArgs): Promise<void> {
   const key = process.env.RESEND_API_KEY;
   const from = process.env.EMAIL_FROM ?? "onboarding@example.com";
 
   if (!key) {
-    console.log("[email:dev]", { to, subject, html });
+    console.log("[email:dev]", args);
     return;
+  }
+
+  const body: Record<string, unknown> = { from, to: args.to };
+
+  if ("template" in args && args.template) {
+    body.template = {
+      id: args.template.id,
+      ...(args.template.variables ? { variables: args.template.variables } : {}),
+    };
+    if (args.subject) body.subject = args.subject;
+  } else if ("html" in args) {
+    body.subject = args.subject;
+    body.html = args.html;
+    if (args.text) body.text = args.text;
   }
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -15,11 +33,11 @@ export async function sendEmail({ to, subject, html, text }: SendArgs): Promise<
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from, to, subject, html, text }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error("[email] failed", res.status, body);
+    const errBody = await res.text().catch(() => "");
+    console.error("[email] failed", res.status, errBody);
   }
 }
 

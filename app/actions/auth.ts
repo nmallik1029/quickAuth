@@ -6,12 +6,13 @@ import { prisma } from "@/lib/db";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { createSession, revokeSessionByToken, revokeAllUserSessions, getSessionByToken } from "@/lib/auth/session";
 import { setSessionCookie, clearSessionCookie, readSessionCookie } from "@/lib/auth/cookies";
-import { isValidEmail, isValidPassword, normalizeEmail, safeRedirectPath } from "@/lib/validation";
+import { isValidEmail, isValidPassword, isStrongPassword, normalizeEmail, safeRedirectPath } from "@/lib/validation";
 import {
   createAndSendVerification,
   createAndSendPasswordReset,
   consumeVerificationToken,
-  consumePasswordResetToken,
+  verifyPasswordResetCode,
+  consumePasswordResetCode,
 } from "@/lib/auth/verification";
 import { checkRateLimit } from "@/lib/rate-limit";
 
@@ -108,28 +109,45 @@ export async function verifyEmailAction(rawToken: string): Promise<{ ok: boolean
 export async function forgotPasswordAction(_prev: MessageState, formData: FormData): Promise<MessageState> {
   await checkRateLimit("forgot-password");
   const emailRaw = String(formData.get("email") ?? "");
-  const generic = { message: "If an account exists, a reset link has been sent." };
-  if (!isValidEmail(emailRaw)) return generic;
+  if (!isValidEmail(emailRaw)) {
+    return { message: "If an account exists, a reset code has been sent." };
+  }
   const emailNormalized = normalizeEmail(emailRaw);
   const user = await prisma.user.findUnique({ where: { emailNormalized } });
   if (user && !user.disabledAt) {
     await createAndSendPasswordReset(user.id, user.email);
   }
-  return generic;
+  redirect(`/reset-password?email=${encodeURIComponent(emailNormalized)}`);
+}
+
+export async function verifyResetCodeAction(email: string, code: string): Promise<{ ok: boolean; error?: string }> {
+  if (!isValidEmail(email)) return { ok: false, error: "Invalid or expired code." };
+  const emailNormalized = normalizeEmail(email);
+  const result = await verifyPasswordResetCode(emailNormalized, code);
+  if (!result.ok) return { ok: false, error: "Invalid or expired code." };
+  return { ok: true };
 }
 
 export async function resetPasswordAction(_prev: MessageState, formData: FormData): Promise<MessageState> {
-  const rawToken = String(formData.get("token") ?? "");
+  const emailRaw = String(formData.get("email") ?? "");
+  const code = String(formData.get("code") ?? "");
   const password = String(formData.get("password") ?? "");
-  if (!rawToken) return { error: "Invalid or missing token." };
-  if (!isValidPassword(password)) return { error: "Password must be at least 8 characters." };
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  const result = await consumePasswordResetToken(rawToken);
-  if (!result.ok || !result.userId) return { error: "Invalid or expired token." };
+  if (!isValidEmail(emailRaw)) return { error: "Invalid or expired code." };
+  if (!/^\d{6}$/.test(code)) return { error: "Invalid or expired code." };
+  if (!isStrongPassword(password)) {
+    return { error: "Password must be 8+ chars with upper, lower, and a number." };
+  }
+  if (password !== confirmPassword) return { error: "Passwords do not match." };
+
+  const emailNormalized = normalizeEmail(emailRaw);
+  const result = await consumePasswordResetCode(emailNormalized, code);
+  if (!result.ok || !result.userId) return { error: "Invalid or expired code." };
 
   const passwordHash = await hashPassword(password);
   await prisma.user.update({ where: { id: result.userId }, data: { passwordHash } });
   await revokeAllUserSessions(result.userId);
   await clearSessionCookie();
-  redirect("/login");
+  redirect("/login?reset=success");
 }

@@ -8,9 +8,14 @@ export default async function DashboardPage() {
     <main className="mx-auto flex min-h-screen max-w-2xl flex-col gap-6 px-6 py-12">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <form action={logoutAction}>
-          <button className="rounded border border-zinc-700 px-3 py-1.5 text-sm">Log out</button>
-        </form>
+        <div className="flex items-center gap-2">
+          <a href="/settings/profile" className="rounded border border-zinc-700 px-3 py-1.5 text-sm hover:bg-zinc-900">
+            Settings
+          </a>
+          <form action={logoutAction}>
+            <button className="rounded border border-zinc-700 px-3 py-1.5 text-sm">Log out</button>
+          </form>
+        </div>
       </header>
       <section className="rounded border border-zinc-800 bg-zinc-900/40 p-4 text-sm">
         <p className="text-zinc-400">Signed in as</p>

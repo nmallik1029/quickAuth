@@ -24,6 +24,7 @@ model User {
   sessions            Session[]
   verificationTokens  EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
+  clientApps          ClientApp[]
 }
 
 model Profile {
@@ -93,6 +94,38 @@ model AuditLog {
   @@index([targetUserId])
   @@index([action])
   @@index([createdAt])
+}
+
+model ClientApp {
+  id               String        @id @default(cuid())
+  name             String
+  slug             String        @unique
+  description      String?
+  homepageUrl      String?
+  logoUrl          String?
+  clientId         String        @unique
+  clientSecretHash String
+  ownerUserId      String?
+  isActive         Boolean       @default(true)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  owner       User?         @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
+  redirectUris RedirectUri[]
+
+  @@index([ownerUserId])
+}
+
+model RedirectUri {
+  id          String   @id @default(cuid())
+  clientAppId String
+  uri         String
+  createdAt   DateTime @default(now())
+
+  clientApp ClientApp @relation(fields: [clientAppId], references: [id], onDelete: Cascade)
+
+  @@unique([clientAppId, uri])
+  @@index([clientAppId])
 }
 
 model RateLimit {

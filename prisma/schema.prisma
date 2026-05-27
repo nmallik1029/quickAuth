@@ -25,6 +25,8 @@ model User {
   verificationTokens  EmailVerificationToken[]
   passwordResetTokens PasswordResetToken[]
   clientApps          ClientApp[]
+  authorizationCodes  AuthorizationCode[]
+  accessTokens        AccessToken[]
 }
 
 model Profile {
@@ -96,6 +98,41 @@ model AuditLog {
   @@index([createdAt])
 }
 
+model AuthorizationCode {
+  id          String    @id @default(cuid())
+  clientAppId String
+  userId      String
+  redirectUri String
+  codeHash    String    @unique
+  scope       String?
+  expiresAt   DateTime
+  usedAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  clientApp ClientApp @relation(fields: [clientAppId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([clientAppId])
+}
+
+model AccessToken {
+  id          String    @id @default(cuid())
+  clientAppId String
+  userId      String
+  tokenHash   String    @unique
+  scope       String?
+  expiresAt   DateTime
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  clientApp ClientApp @relation(fields: [clientAppId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([clientAppId])
+}
+
 model ClientApp {
   id               String        @id @default(cuid())
   name             String
@@ -112,6 +149,8 @@ model ClientApp {
 
   owner       User?         @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
   redirectUris RedirectUri[]
+  authorizationCodes AuthorizationCode[]
+  accessTokens       AccessToken[]
 
   @@index([ownerUserId])
 }

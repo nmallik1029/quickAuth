@@ -1,6 +1,6 @@
 import { randomBytes } from "crypto";
-import { mkdir, writeFile, unlink } from "fs/promises";
-import path from "path";
+import { DeleteObjectCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { r2Client, r2Config, r2KeyFromUrl, r2PublicUrl } from "./r2";
 
 const MAX_BYTES = 5 * 1024 * 1024;
 
@@ -11,7 +11,7 @@ const ALLOWED: { mime: string; ext: string; magic: (b: Buffer) => boolean }[] = 
 ];
 
 export type AvatarUploadResult =
-  | { ok: true; url: string; relativePath: string }
+  | { ok: true; url: string; key: string }
   | { ok: false; error: string };
 
 export async function saveAvatar(userId: string, file: File): Promise<AvatarUploadResult> {
@@ -28,24 +28,33 @@ export async function saveAvatar(userId: string, file: File): Promise<AvatarUplo
     return { ok: false, error: "File content does not match its image type." };
   }
 
-  const ext = allowedByMime.ext;
+  const { bucket, publicBaseUrl } = r2Config();
+  if (!bucket || !publicBaseUrl) return { ok: false, error: "Avatar storage is not configured." };
+
   const random = randomBytes(16).toString("hex");
-  const filename = `${random}.${ext}`;
+  const key = `avatars/${userId}/${random}.${allowedByMime.ext}`;
 
-  const dirAbs = path.join(process.cwd(), "public", "uploads", "avatars", userId);
-  await mkdir(dirAbs, { recursive: true });
-  await writeFile(path.join(dirAbs, filename), buf);
+  await r2Client().send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: buf,
+      ContentType: allowedByMime.mime,
+      CacheControl: "public, max-age=31536000, immutable",
+    }),
+  );
 
-  const url = `/uploads/avatars/${userId}/${filename}`;
-  return { ok: true, url, relativePath: url };
+  return { ok: true, url: r2PublicUrl(key), key };
 }
 
 export async function deleteAvatarFile(publicUrl: string | null | undefined): Promise<void> {
   if (!publicUrl) return;
-  if (!publicUrl.startsWith("/uploads/avatars/")) return;
-  const abs = path.join(process.cwd(), "public", publicUrl.replace(/^\//, ""));
+  const key = r2KeyFromUrl(publicUrl);
+  if (!key) return;
+  const { bucket } = r2Config();
+  if (!bucket) return;
   try {
-    await unlink(abs);
+    await r2Client().send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
   } catch {
     /* ignore */
   }

@@ -79,6 +79,32 @@ model SignupVerification {
   updatedAt       DateTime  @updatedAt
 }
 
+model AuditLog {
+  id           String   @id @default(cuid())
+  actorUserId  String?
+  targetUserId String?
+  action       String
+  metadata     String?
+  ipAddress    String?
+  userAgent    String?
+  createdAt    DateTime @default(now())
+
+  @@index([actorUserId])
+  @@index([targetUserId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+model RateLimit {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  count       Int      @default(0)
+  windowStart DateTime @default(now())
+  expiresAt   DateTime
+
+  @@index([expiresAt])
+}
+
 model PasswordResetToken {
   id        String    @id @default(cuid())
   userId    String

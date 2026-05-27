@@ -15,7 +15,6 @@ import {
   verifyPasswordResetCode,
   consumePasswordResetCode,
 } from "@/lib/auth/verification";
-import { checkRateLimit } from "@/lib/rate-limit";
 import { sendEmail } from "@/lib/email";
 import {
   startSignupVerification,
@@ -36,7 +35,6 @@ async function getReqMeta() {
 
 /** Step 1: user enters email, we send a 6-digit code. */
 export async function startEmailSignupAction(_prev: AuthState, formData: FormData): Promise<AuthState> {
-  await checkRateLimit("signup-start");
   const emailRaw = String(formData.get("email") ?? "");
   if (!isValidEmail(emailRaw)) return { error: "Invalid email." };
   const emailNormalized = normalizeEmail(emailRaw);
@@ -160,7 +158,6 @@ export async function logoutAction() {
 export type MessageState = { error?: string; message?: string };
 
 export async function resendVerificationAction(_prev: MessageState, _formData: FormData): Promise<MessageState> {
-  await checkRateLimit("resend-verification");
   const token = await readSessionCookie();
   if (!token) return { error: "Not signed in." };
   const session = await getSessionByToken(token);
@@ -177,7 +174,6 @@ export async function verifyEmailAction(rawToken: string): Promise<{ ok: boolean
 }
 
 export async function forgotPasswordAction(_prev: MessageState, formData: FormData): Promise<MessageState> {
-  await checkRateLimit("forgot-password");
   const emailRaw = String(formData.get("email") ?? "");
   if (!isValidEmail(emailRaw)) {
     return { message: "If an account exists, a reset code has been sent." };
@@ -191,7 +187,6 @@ export async function forgotPasswordAction(_prev: MessageState, formData: FormDa
 }
 
 export async function forgotUsernameAction(_prev: MessageState, formData: FormData): Promise<MessageState> {
-  await checkRateLimit("forgot-username");
   const emailRaw = String(formData.get("email") ?? "");
   const generic = { message: "If an account exists, we sent the username to that email." };
   if (!isValidEmail(emailRaw)) return generic;

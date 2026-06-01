@@ -26,5 +26,6 @@ export async function GET(req: NextRequest) {
     username: u.profile?.username ?? null,
     display_name: u.profile?.displayName ?? null,
     avatar_url: u.profile?.avatarUrl ?? null,
+    must_change_password: u.mustChangePassword,
   });
 }

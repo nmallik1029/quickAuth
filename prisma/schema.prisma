@@ -15,6 +15,7 @@ model User {
   googleId        String?   @unique
   emailVerifiedAt DateTime?
   role            String    @default("user")
+  mustChangePassword Boolean @default(false)
   disabledAt      DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
@@ -144,6 +145,11 @@ model ClientApp {
   clientSecretHash String
   ownerUserId      String?
   isActive         Boolean       @default(true)
+  brandColor       String?
+  bgColor          String?
+  bgImageUrl       String?
+  selfService      Boolean       @default(true)
+  contactEmail     String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 

@@ -33,28 +33,50 @@ function GoogleIcon() {
   );
 }
 
-export function LoginCard({ action }: { action: Action }) {
+type Branding = {
+  name: string;
+  logoUrl: string | null;
+  brandColor: string | null;
+  selfService?: boolean;
+  contactEmail?: string | null;
+} | null;
+
+export function LoginCard({ action, branding }: { action: Action; branding?: Branding }) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, {});
+  const accent = branding?.brandColor ?? undefined;
+  // Self-service account links (forgot password/username, create account). Off
+  // for clients that handle issues elsewhere (e.g. a support ticket system).
+  const showSelfService = branding?.selfService !== false;
   return (
     <div className="w-full max-w-sm rounded-2xl border border-zinc-800 bg-zinc-900/50 p-7 shadow-2xl backdrop-blur">
+      {branding?.logoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={branding.logoUrl} alt={branding.name} className="mb-4 h-9 w-auto" />
+      ) : null}
       <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
-      <p className="mt-1 text-sm text-zinc-400">Sign in to your QuickAuth account.</p>
+      <p className="mt-1 text-sm text-zinc-400">
+        Sign in to {branding?.name ? <span className="text-zinc-200">{branding.name}</span> : "your QuickAuth account"}.
+      </p>
 
-      <a
-        href="/api/auth/google/start"
-        className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:bg-zinc-900"
-      >
-        <GoogleIcon />
-        Google
-      </a>
+      {showSelfService ? (
+        <>
+          <a
+            href="/api/auth/google/start"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:bg-zinc-900"
+          >
+            <GoogleIcon />
+            Google
+          </a>
 
-      <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-zinc-500">
-        <div className="h-px flex-1 bg-zinc-800" />
-        Or continue with
-        <div className="h-px flex-1 bg-zinc-800" />
-      </div>
+          <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-zinc-500">
+            <div className="h-px flex-1 bg-zinc-800" />
+            Or continue with
+            <div className="h-px flex-1 bg-zinc-800" />
+          </div>
+        </>
+      ) : null}
 
-      <form action={formAction} className="flex flex-col gap-4">
+      <form action={formAction} className={`${showSelfService ? "" : "mt-6"} flex flex-col gap-4`}>
         <div className="flex flex-col gap-1.5">
           <label htmlFor="identifier" className="text-xs font-medium text-zinc-300">
             Email or username
@@ -74,9 +96,11 @@ export function LoginCard({ action }: { action: Action }) {
             <label htmlFor="password" className="text-xs font-medium text-zinc-300">
               Password
             </label>
-            <Link href="/forgot-password" className="text-xs text-zinc-400 hover:text-zinc-200 hover:underline">
-              Forgot password?
-            </Link>
+            {showSelfService ? (
+              <Link href="/forgot-password" className="text-xs text-zinc-400 hover:text-zinc-200 hover:underline">
+                Forgot password?
+              </Link>
+            ) : null}
           </div>
           <PasswordInput id="password" name="password" autoComplete="current-password" minLength={8} />
         </div>
@@ -86,20 +110,39 @@ export function LoginCard({ action }: { action: Action }) {
         <button
           type="submit"
           disabled={pending}
+          style={accent ? { backgroundColor: accent, color: "#fff" } : undefined}
           className="mt-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-black transition hover:bg-zinc-200 disabled:opacity-60"
         >
           {pending ? "Signing in…" : "Sign in"}
         </button>
       </form>
 
-      <div className="mt-5 flex items-center justify-between text-xs text-zinc-400">
-        <Link href="/forgot-username" className="hover:text-zinc-200 hover:underline">
-          Forgot username?
-        </Link>
-        <Link href="/signup" className="hover:text-zinc-200 hover:underline">
-          Create account
-        </Link>
-      </div>
+      {showSelfService ? (
+        <div className="mt-5 flex items-center justify-between text-xs text-zinc-400">
+          <Link href="/forgot-username" className="hover:text-zinc-200 hover:underline">
+            Forgot username?
+          </Link>
+          <Link href="/signup" className="hover:text-zinc-200 hover:underline">
+            Create account
+          </Link>
+        </div>
+      ) : null}
+
+      {branding?.contactEmail ? (
+        <>
+          <div className="mt-6 h-px w-full bg-zinc-800" />
+          <p className="mt-4 text-center text-xs text-zinc-400">
+            Forgot your username or password?{" "}
+            <a
+              href={`mailto:${branding.contactEmail}`}
+              style={accent ? { color: accent } : undefined}
+              className="font-medium text-zinc-200 hover:underline"
+            ><br />
+              Email us at {branding.contactEmail}
+            </a>
+          </p>
+        </>
+      ) : null}
     </div>
   );
 }

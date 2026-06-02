@@ -4,6 +4,8 @@ WORKDIR /app
 # build tools for native modules (argon2)
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ openssl && rm -rf /var/lib/apt/lists/*
 COPY package.json package-lock.json ./
+# Prisma schema must be present because postinstall runs `prisma generate`.
+COPY prisma ./prisma
 RUN npm ci
 
 FROM node:20-bookworm-slim AS build
@@ -19,7 +21,6 @@ ENV PORT=8080
 RUN apt-get update && apt-get install -y --no-install-recommends openssl && rm -rf /var/lib/apt/lists/*
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/.next ./.next
-COPY --from=build /app/public ./public
 COPY --from=build /app/prisma ./prisma
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/next.config.mjs ./next.config.mjs

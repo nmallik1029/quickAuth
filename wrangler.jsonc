@@ -1,0 +1,23 @@
+{
+  // quickAuth on Cloudflare Containers. Verify fields against current docs:
+  // https://developers.cloudflare.com/containers/
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clinicscreen-auth",
+  "main": "worker.ts",
+  "compatibility_date": "2025-09-01",
+  "containers": [
+    {
+      "class_name": "QuickAuthContainer",
+      "image": "./Dockerfile",
+      "name": "clinicscreen-auth",
+      "max_instances": 1
+    }
+  ],
+  "durable_objects": {
+    "bindings": [{ "class_name": "QuickAuthContainer", "name": "CONTAINER" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["QuickAuthContainer"] }]
+  // Secrets (set with `wrangler secret put <NAME>`): DATABASE_URL, APP_URL,
+  // PROVISION_SECRET, CLIENT_SECRET_PEPPER, RESEND_API_KEY, EMAIL_FROM, and
+  // optionally R2_* and GOOGLE_* if used.
+}

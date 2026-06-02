@@ -151,6 +151,7 @@ model ClientApp {
   bgImageUrl       String?
   selfService      Boolean       @default(true)
   contactEmail     String?
+  skipConsent      Boolean       @default(false)
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
 

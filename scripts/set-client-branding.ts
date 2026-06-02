@@ -23,6 +23,8 @@ async function main() {
   }
   const selfService = arg("selfService");
   if (selfService !== undefined) data.selfService = selfService === "true";
+  const skipConsent = arg("skipConsent");
+  if (skipConsent !== undefined) data.skipConsent = skipConsent === "true";
 
   const app = await prisma.clientApp.update({ where: { slug }, data });
   console.log("Updated branding for", app.name, "(", app.slug, "):", JSON.stringify(data));

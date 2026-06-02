@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth/current-user";
 import { approveOAuthAction, denyOAuthAction } from "@/app/actions/oauth";
+import { createAuthorizationCode } from "@/lib/oauth/codes";
 import { createAuditLog } from "@/lib/audit";
 
 function ErrorScreen({ title, detail }: { title: string; detail: string }) {
@@ -59,6 +60,26 @@ export default async function OAuthAuthorizePage({
       ...(scope ? { scope } : {}),
     }).toString()}`;
     redirect(`/oauth/begin-login?next=${encodeURIComponent(here)}`);
+  }
+
+  // Trusted first-party client: skip the consent screen and issue the code directly.
+  if (app.skipConsent) {
+    const code = await createAuthorizationCode({
+      clientAppId: app.id,
+      userId: user.id,
+      redirectUri,
+      scope: scope || null,
+    });
+    await createAuditLog({
+      action: "oauth.authorize.granted",
+      actorUserId: user.id,
+      targetUserId: user.id,
+      metadata: { clientAppId: app.id, clientId, scope, auto: true },
+    });
+    const u = new URL(redirectUri);
+    u.searchParams.set("code", code);
+    if (state) u.searchParams.set("state", state);
+    redirect(u.toString());
   }
 
   await createAuditLog({

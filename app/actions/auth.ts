@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
-import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword, passwordNeedsRehash } from "@/lib/auth/password";
 import { createSession, revokeSessionByToken, revokeAllUserSessions, getSessionByToken } from "@/lib/auth/session";
 import { setSessionCookie, clearSessionCookie, readSessionCookie } from "@/lib/auth/cookies";
 import { isValidEmail, isValidPassword, isStrongPassword, normalizeEmail, safeRedirectPath } from "@/lib/validation";
@@ -176,11 +176,21 @@ export async function loginAction(_prev: AuthState, formData: FormData): Promise
     return generic;
   }
 
+  // Migrate legacy heavy-param hashes to the lighter params on the fly so the next
+  // login verifies faster. Off the critical path — we already have a valid login.
+  if (passwordNeedsRehash(user.passwordHash)) {
+    const userId = user.id;
+    void hashPassword(password)
+      .then((h) => prisma.user.update({ where: { id: userId }, data: { passwordHash: h } }))
+      .catch(() => {});
+  }
+
   const meta = await getReqMeta();
   const token = await createSession(user.id, meta);
   await setSessionCookie(token);
-  await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-  await createAuditLog({ action: "login.success", actorUserId: user.id, targetUserId: user.id, metadata: { method: "password" } });
+  // Off the critical path — fire-and-forget so the redirect isn't blocked on these writes.
+  void prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
+  void createAuditLog({ action: "login.success", actorUserId: user.id, targetUserId: user.id, metadata: { method: "password" } }).catch(() => {});
 
   const postLogin = await consumePostLoginRedirect();
   redirect(postLogin ?? redirectTo);

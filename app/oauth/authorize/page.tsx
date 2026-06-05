@@ -59,7 +59,9 @@ export default async function OAuthAuthorizePage({
       ...(state ? { state } : {}),
       ...(scope ? { scope } : {}),
     }).toString()}`;
-    redirect(`/oauth/begin-login?next=${encodeURIComponent(here)}`);
+    // Straight to the login page (carrying the return path as a query param) —
+    // no extra /oauth/begin-login redirect hop.
+    redirect(`/login?next=${encodeURIComponent(here)}`);
   }
 
   // Trusted first-party client: skip the consent screen and issue the code directly.
@@ -70,12 +72,13 @@ export default async function OAuthAuthorizePage({
       redirectUri,
       scope: scope || null,
     });
-    await createAuditLog({
+    // Off the critical path — don't block the redirect on the audit write.
+    void createAuditLog({
       action: "oauth.authorize.granted",
       actorUserId: user.id,
       targetUserId: user.id,
       metadata: { clientAppId: app.id, clientId, scope, auto: true },
-    });
+    }).catch(() => {});
     const u = new URL(redirectUri);
     u.searchParams.set("code", code);
     if (state) u.searchParams.set("state", state);

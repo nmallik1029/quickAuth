@@ -24,16 +24,31 @@ export async function createAuthorizationCode(opts: {
   return code;
 }
 
+export type OAuthUserInfo = {
+  id: string;
+  email: string;
+  email_verified: boolean;
+  username: string | null;
+  display_name: string | null;
+  avatar_url: string | null;
+  must_change_password: boolean;
+};
+
 export async function consumeAuthorizationCode(opts: {
   rawCode: string;
   clientAppId: string;
   redirectUri: string;
 }): Promise<
-  | { ok: true; userId: string; scope: string | null }
+  | { ok: true; userId: string; scope: string | null; user: OAuthUserInfo }
   | { ok: false; reason: string }
 > {
   const codeHash = hashToken(opts.rawCode);
-  const record = await prisma.authorizationCode.findUnique({ where: { codeHash } });
+  // Load the user alongside the code so the token response can embed the profile
+  // and clients don't need a second /oauth/userinfo round trip.
+  const record = await prisma.authorizationCode.findUnique({
+    where: { codeHash },
+    include: { user: { include: { profile: true } } },
+  });
   if (!record) return { ok: false, reason: "invalid_grant" };
   if (record.usedAt) return { ok: false, reason: "invalid_grant" };
   if (record.expiresAt < new Date()) return { ok: false, reason: "invalid_grant" };
@@ -45,7 +60,21 @@ export async function consumeAuthorizationCode(opts: {
     data: { usedAt: new Date() },
   });
 
-  return { ok: true, userId: record.userId, scope: record.scope };
+  const u = record.user;
+  return {
+    ok: true,
+    userId: record.userId,
+    scope: record.scope,
+    user: {
+      id: u.id,
+      email: u.email,
+      email_verified: !!u.emailVerifiedAt,
+      username: u.profile?.username ?? null,
+      display_name: u.profile?.displayName ?? null,
+      avatar_url: u.profile?.avatarUrl ?? null,
+      must_change_password: u.mustChangePassword,
+    },
+  };
 }
 
 export async function createAccessToken(opts: {

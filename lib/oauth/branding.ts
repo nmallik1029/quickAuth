@@ -13,14 +13,17 @@ export type LoginBranding = {
 };
 
 /**
- * Branding for the client app that initiated the current login, derived from the
- * pending post-login redirect cookie. Returns null for direct logins or clients
- * without branding, so the default QuickAuth look is used. Does not consume the
- * cookie (loginAction still needs it).
+ * Branding for the client app that initiated the current login. Prefers the return
+ * path passed by the login page (?next=), falling back to the legacy post-login
+ * cookie. Returns null for direct logins or clients without branding, so the
+ * default QuickAuth look is used.
  */
-export async function getLoginBranding(): Promise<LoginBranding | null> {
-  const jar = await cookies();
-  const path = jar.get(POST_LOGIN_COOKIE)?.value;
+export async function getLoginBranding(next?: string | null): Promise<LoginBranding | null> {
+  let path = next ?? null;
+  if (!path) {
+    const jar = await cookies();
+    path = jar.get(POST_LOGIN_COOKIE)?.value ?? null;
+  }
   if (!path) return null;
 
   let clientId: string | null = null;

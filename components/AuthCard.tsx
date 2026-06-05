@@ -41,8 +41,19 @@ type Branding = {
   contactEmail?: string | null;
 } | null;
 
-export function LoginCard({ action, branding }: { action: Action; branding?: Branding }) {
+export function LoginCard({
+  action,
+  branding,
+  redirectTo,
+}: {
+  action: Action;
+  branding?: Branding;
+  redirectTo?: string;
+}) {
   const [state, formAction, pending] = useActionState<AuthState, FormData>(action, {});
+  const googleHref = redirectTo
+    ? `/api/auth/google/start?next=${encodeURIComponent(redirectTo)}`
+    : "/api/auth/google/start";
   const accent = branding?.brandColor ?? undefined;
   // Self-service account links (forgot password/username, create account). Off
   // for clients that handle issues elsewhere (e.g. a support ticket system).
@@ -61,7 +72,7 @@ export function LoginCard({ action, branding }: { action: Action; branding?: Bra
       {showSelfService ? (
         <>
           <a
-            href="/api/auth/google/start"
+            href={googleHref}
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-md border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm font-medium text-zinc-100 transition hover:bg-zinc-900"
           >
             <GoogleIcon />
@@ -77,6 +88,7 @@ export function LoginCard({ action, branding }: { action: Action; branding?: Bra
       ) : null}
 
       <form action={formAction} className={`${showSelfService ? "" : "mt-6"} flex flex-col gap-4`}>
+        {redirectTo ? <input type="hidden" name="redirectTo" value={redirectTo} /> : null}
         <div className="flex flex-col gap-1.5">
           <label htmlFor="identifier" className="text-xs font-medium text-zinc-300">
             Email or username

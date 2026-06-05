@@ -76,12 +76,13 @@ export async function POST(req: NextRequest) {
     scope: result.scope,
   });
 
-  await createAuditLog({
+  // Off the critical path — don't make the client wait on the audit write.
+  void createAuditLog({
     action: "oauth.token.issued",
     actorUserId: result.userId,
     targetUserId: result.userId,
     metadata: { clientAppId: app.id, clientId: p.client_id },
-  });
+  }).catch(() => {});
 
   return NextResponse.json({
     access_token: token,
@@ -89,6 +90,8 @@ export async function POST(req: NextRequest) {
     expires_in: Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000)),
     scope: result.scope ?? undefined,
     user_id: result.userId,
+    // Embedded profile so first-party clients can skip the /oauth/userinfo call.
+    user: result.user,
   });
 }
 

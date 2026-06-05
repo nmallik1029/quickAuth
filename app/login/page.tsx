@@ -16,12 +16,15 @@ const errorMessages: Record<string, string> = {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; next?: string }>;
 }) {
   if (await getCurrentUser()) redirect("/dashboard");
-  const { error } = await searchParams;
+  const { error, next } = await searchParams;
+  // Where to send the user after login (the OAuth authorize URL). Only accept
+  // internal /oauth/ paths.
+  const redirectTo = next && next.startsWith("/oauth/") ? next : undefined;
   const errorMsg = error ? errorMessages[error] ?? null : null;
-  const branding = await getLoginBranding();
+  const branding = await getLoginBranding(redirectTo);
 
   const customBg = branding?.bgImageUrl
     ? { backgroundImage: `url(${branding.bgImageUrl})`, backgroundSize: "cover", backgroundPosition: "center" }
@@ -43,7 +46,7 @@ export default async function LoginPage({
             {errorMsg}
           </div>
         ) : null}
-        <LoginCard action={loginAction} branding={branding} />
+        <LoginCard action={loginAction} branding={branding} redirectTo={redirectTo} />
       </div>
     </main>
   );

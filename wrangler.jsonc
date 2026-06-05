@@ -16,7 +16,9 @@
   "durable_objects": {
     "bindings": [{ "class_name": "QuickAuthContainer", "name": "CONTAINER" }]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["QuickAuthContainer"] }]
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["QuickAuthContainer"] }],
+  // Keep the container warm (sleepAfter is 1h) so users never hit a cold start.
+  "triggers": { "crons": ["*/30 * * * *"] }
   // Secrets (set with `wrangler secret put <NAME>`): DATABASE_URL, APP_URL,
   // PROVISION_SECRET, CLIENT_SECRET_PEPPER, RESEND_API_KEY, EMAIL_FROM, and
   // optionally R2_* and GOOGLE_* if used.
